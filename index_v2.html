@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="videonoference, networking, client-server architecture">
+    <meta name="description" content="Web-service for real-time videoconferences">
+    <title>My Videoconference</title>
+    <link rel="stylesheet" href="main.css">
+  </head>
+  <body>
+    <header>
+      <h1 class="header_h1">Room Name</h1>
+    </header>
+    <main>
+      <div class="main_block"></div>
+      <video id="remoteStream" autoplay playsinline></video>
+      <video id="localStream" autoplay playsinline></video>
+      <script src="socket.io.js"></script>
+      <script src="main.js"></script>
+    </main>
+    <footer>
+      <div class="footer_block">
+	<div class="footer_btns">
+	  <p class="footer_btn">
+	    <button id='1' onclick="toggle(this)" class="OFF">
+		<svg xmlns="http://www.w3.org/2000/svg" width="80" height="42" viewBox="0 0 104 64" fill="none">
+			<rect x="44.2716" y="10" width="15.6067" height="27.7798" rx="7.80333" stroke="white" stroke-width="2.8092"/><path d="M36.0001 31.8492C36.0001 40.745 43.5693 47.3779 51.6068 47.3779C58.7858 47.3779 67.5256 42.3057 67.5256 31.8492" stroke="white" stroke-width="2.49706" stroke-linecap="round" stroke-linejoin="round"/>
+			<path d="M51.7627 54.2449V47.9242" stroke="white" stroke-width="2.49706" stroke-linecap="round" stroke-linejoin="round"/>
+			<path d="M30.8976 47.2491L70.1467 8" stroke="white" stroke-width="2.51195" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>
+	    </button>
+	  </p>
+	  <p class="footer_btn">
+	    <button id='2' onclick="toggle(this)" class="OFF">
+		<svg xmlns="http://www.w3.org/2000/svg" width="80" height="42" viewBox="0 0 104 64" fill="none">
+			<rect x="29.2838" y="15.6049" width="41.1356" height="32.3208" rx="1.69493" stroke="white" stroke-width="2.76542"/>
+			<path d="M70.5924 23.7161C70.5924 23.6482 70.6363 23.588 70.701 23.5674L79.2035 20.848C79.3043 20.8158 79.4072 20.8909 79.4072 20.9967V42.7069C79.4072 42.8127 79.3043 42.8879 79.2035 42.8556L70.701 40.1363C70.6363 40.1156 70.5924 40.0555 70.5924 39.9876V23.7161Z" stroke="white" stroke-width="2.76542"/>
+			<path d="M26 55.7035L73.7035 8" stroke="white" stroke-width="2.76542" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>
+	    </button>
+	  </p>
+	  <p class="end_call_btn footer_btn">
+	    <button id='0' onclick="toggle(this)" class="ON">
+		<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 64 64" fill="none">
+			<path d="M20.3796 20.3795L44.3796 44.3795" stroke="white" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+			<path d="M44.3796 20.3795L20.3796 44.3795" stroke="white" stroke-width="2" stroke-linecap="square" stroke-linejoin="round"/>
+		</svg>
+	    </button>
+	  </p>
+	</div>
+      </div>
+    </footer>
+  </body>
+</html>
