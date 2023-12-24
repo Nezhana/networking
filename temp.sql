@@ -11,20 +11,30 @@ USE videoconference;
 -- INSERT INTO USER VALUES ();
 
 -- fetch 
-SELECT * FROM USER;
-SELECT ID AS 'NULL NAME ID' FROM USER WHERE name IS NULL;
+-- SELECT * FROM USER;
+-- SELECT ID AS 'NULL NAME ID' FROM USER WHERE name IS NULL;
 
 -- update
 -- UPDATE USER
--- SET name = 'user_1'
+-- SET name = 'User_1', hostname = 'hostname_1', host_ip = '192.168.1.106'
 -- WHERE ID = 1;
 
 -- UPDATE USER
--- SET name = 'user_3'
+-- SET hostname = 'hostname_2', host_ip = '192.168.1.107'
+-- WHERE ID = 2;
+
+-- UPDATE USER
+-- SET name = 'User_3', hostname = 'hostname_3', host_ip = '192.168.1.108'
 -- WHERE ID = 3;
 
+-- alter table
+-- ALTER TABLE USER
+-- ADD hostname varchar(255);
+-- ALTER TABLE USER
+-- ADD host_ip varchar(255);
+
 -- fetch 
-SELECT * FROM USER;
+-- SELECT * FROM USER;
 
 -- ------------------------------------------
 
@@ -41,7 +51,7 @@ SELECT * FROM USER;
 -- INSERT INTO ROOM (name, link) VALUES ('Room 3', 'htt//www.videoconference.ua/link/01a38da3-630e-4418-9067-37b5a847d679');
 
 -- fetch 
-SELECT * FROM ROOM;
+-- SELECT * FROM ROOM;
 
 
 -- ------------------------------------------
@@ -61,8 +71,8 @@ SELECT * FROM ROOM;
 -- INSERT INTO SAVED_ROOM (user_ID, room_ID) VALUES (3, 1);
 
 -- fetch 
-SELECT * FROM SAVED_ROOM;
-SELECT SAVED_ROOM.ID, SAVED_ROOM.user_ID, SAVED_ROOM.room_ID, ROOM.name, ROOM.link
-FROM SAVED_ROOM
-LEFT JOIN ROOM ON SAVED_ROOM.room_ID = ROOM.ID
-ORDER BY SAVED_ROOM.ID;
+-- SELECT * FROM SAVED_ROOM;
+-- SELECT SAVED_ROOM.ID, SAVED_ROOM.user_ID, SAVED_ROOM.room_ID, ROOM.name, ROOM.link
+-- FROM SAVED_ROOM
+-- LEFT JOIN ROOM ON SAVED_ROOM.room_ID = ROOM.ID
+-- ORDER BY SAVED_ROOM.ID;

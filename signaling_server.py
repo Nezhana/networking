@@ -7,7 +7,7 @@ sio = socketio.AsyncServer(cors_allowed_origins='*', ping_timeout=35)
 app = web.Application()
 sio.attach(app)
 
-#python -m http.server 7000
+#py -m http.server -b 192.168.1.109 8000
 
 
 @sio.event
@@ -30,4 +30,4 @@ async def data(sid, data):
 
 
 if __name__ == '__main__':
-    web.run_app(app, port=8000)
+    web.run_app(app, port=8080)

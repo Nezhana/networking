@@ -1,8 +1,8 @@
-create_room [name] [-s] [-o] - create new room for videoconference, [name] - room name, [-s] - save room, [-o] - connect to room (open in bowser)
+create room [name] [-s] [-o] - create new room for videoconference, [name] - room name, [-s] - save room, [-o] - connect to room (open in bowser)
 connect [name] - connect to existing room, [name] - room name
-delete_room [name] - delete existing room, [name] - room name
-rename_room [old_name] [new_name] - rename existing room
-save_room [name] - save existing room to saved list, [name] - room name
-get_saved - get all rooms from saved list
-change_username [new_name] - change username
-erase_saved [name] - delete saved room from saved list
+delete room [name] - delete existing room, [name] - room name
+rename room [old_name] [new_name] - rename existing room
+save room [name] - save existing room to saved list, [name] - room name
+get saved - get all rooms from saved list
+change username [new_name] - change username
+erase saved [name] - delete saved room from saved list

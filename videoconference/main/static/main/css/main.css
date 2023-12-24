@@ -1,0 +1,134 @@
+html {
+	scroll-behavior: smooth;
+}
+
+body {
+	margin: 0px;
+	font-family: 'Manrope', sans-serif;
+	font-style: normal;
+	font-weight: 400;
+	font-size: 24px;
+	line-height: 147.02%;
+	color: #FFF;
+	background: #171717;
+	overflow-y: scroll;
+	-ms-overflow-style: none;  /* IE and Edge */
+	scrollbar-width: none;  /* Firefox */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+body::-webkit-scrollbar {
+	display: none;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+	margin: 0;
+}
+
+header {
+	position: relative;
+	height: 60px;
+	background: #2C2C2C;
+}
+
+.header_h1 {
+	position: relative;
+	text-align: center;
+	padding-top: 12px;
+	font-size: 32px;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+main {
+	position: relative;
+	height: 630px;
+	width: 100%;
+	padding: 20px;
+}
+
+.main_block {
+	position: relative;
+	height: 100%;
+	width: 100%;
+	background: #606060;
+}
+
+#remoteStream {
+	width: 100%;
+	height: 100%;
+	position: relative;
+	top: -590px;
+}
+
+#localStream {
+	width: 25vh;
+	height: 25vh;
+	margin: 1em;
+	bottom: 835px;
+	right: -657px;
+	position: relative;
+}
+
+.footer_block {
+	position: relative;
+	height: 60px;
+	background: #2C2C2C;
+	text-align: center;
+	padding: 0px 32%;
+	font-size: 28px;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+}
+
+.footer_btns {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+    	flex-wrap: wrap;
+	align-content: center;
+	height: 100%;
+}
+
+.footer_btn {
+	height: 70%;
+	width: 80px;
+	border-radius: 40px;
+}
+
+.footer_btn button {
+	text-decoration: none;
+	color: #FFF;
+	border: none;
+	border-radius: 36px;
+	background: #959595;
+	width: 80px;
+	height: 42px;
+	padding: 0;
+}
+
+.footer_btn button:hover {
+	background: #878787;
+}
+
+.end_call_btn {
+	width: 42px;
+}
+
+.end_call_btn button {
+	width: 42px;
+	background: #DB392E;
+	padding: 0;
+}
+
+.end_call_btn button:hover {
+	background: #C42C22;
+}
