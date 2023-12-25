@@ -1,1 +1,6 @@
 python -m pip install -U channels["daphne"]
+
+sdp: 
+"v=0\r\no=- 5125984288445890885 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=extmap-allow-mixed\r\na=msid-semantic: WMS\r\n"
+type: 
+"offer"

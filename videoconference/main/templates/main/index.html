@@ -14,12 +14,13 @@
         </header>
         <main>
             {{ room_name|json_script:"room-name" }}
+            {{ user_name|json_script:"user-name" }}
             <div class="main_block"></div>
             <video id="remoteStream" autoplay playsinline></video>
             <video id="localStream" autoplay playsinline></video>
             <!-- <script async src="{% static 'js/socket.io.js' %}"></script> -->
             <!-- <script src="{% static 'js/main.js' %}"></script> -->
-            <script src="{% static 'js/test.js' %}"></script>
+            <script src="{% static 'js/test2.js' %}"></script>
         </main>
         <footer>
             <div class="footer_block">
