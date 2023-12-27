@@ -33,25 +33,30 @@ h1, h2, h3, h4, h5, h6 {
 
 header {
 	position: relative;
-	height: 60px;
+	height: 8vh;
 	background: #2C2C2C;
 }
 
 .header_h1 {
 	position: relative;
 	text-align: center;
-	padding-top: 12px;
 	font-size: 32px;
 	font-style: normal;
 	font-weight: 400;
 	line-height: normal;
 }
 
+.center {
+	margin: auto;
+	width: 60%;
+	padding: 18px;
+}
+
 main {
 	position: relative;
-	height: 630px;
-	width: 100%;
-	padding: 20px;
+    height: 84vh;
+    width: 100%;
+    padding: 20px;
 }
 
 .main_block {
@@ -62,24 +67,25 @@ main {
 }
 
 #remoteStream {
-	width: 100%;
-	height: 100%;
-	position: relative;
-	top: -590px;
+	width: 90%;
+    height: 90%;
+    position: relative;
+    top: 5%;
+    left: 5%;
 }
 
 #localStream {
 	width: 25vh;
-	height: 25vh;
-	margin: 1em;
-	bottom: 835px;
-	right: -657px;
-	position: relative;
+    height: 25vh;
+    margin: 1em;
+    bottom: 0px;
+    right: 0px;
+    position: absolute;
 }
 
 .footer_block {
 	position: relative;
-	height: 60px;
+	height: 8vh;
 	background: #2C2C2C;
 	text-align: center;
 	padding: 0px 32%;
@@ -93,7 +99,7 @@ main {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-    	flex-wrap: wrap;
+    flex-wrap: wrap;
 	align-content: center;
 	height: 100%;
 }

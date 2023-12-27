@@ -160,55 +160,7 @@ class Terminal():
     def e_no_room(self):
         if 1 < 2:
             raise NoSuchRoomException('There are no room with this name.')
-    
-    # def create_room(self, room_name):
-    #     #action
-    #     room_link = self.room_controller.create_room(room_name)
-    #     print("Terminal: 1. Create room.")
-    #     answer = input('Wanna connect now? y/n: ')
-    #     if answer:
-    #         if answer == 'y':
-    #             self.connect_to_room(room_link)
-    #         elif answer == 'n':
-    #             print(f'Link for {room_name}: {room_link}')
-    #         else:
-    #             raise ValueError('Wrong answer')
-    #     else:
-    #         raise ValueError('Empty answer')
-    
-    # def connect_to_room(self, room_link):
-    #     #action
-    #     print("Terminal: 2. Connect to room")
-    #     self.browser.open_url(room_link)
-    
-    # def get_room_id(self):
-    #     #output
-    #     print("Terminal: 3. Get room ID")
-    
-    # def remove_room(self):
-    #     #action
-    #     self.get_room_id()
-    #     print("Terminal: 4. Remove room")
-    
-    # def rename_room(self, new_room_name):
-    #     #input
-    #     self.get_room_id()
-    #     print("Terminal: 5. Rename room: ", new_room_name)
-    
-    # def new_saved_room(self):
-    #     #actions
-    #     self.get_room_id()
-    #     print("Terminal: 6. New saved room")
-    
-    # def get_all_saved_room(self):
-    #     #output
-    #     print("Terminal: 7. Get all saved room")
-    #     self.room_controller.get_all_saved_rooms()
-    
-    # def set_name(self, new_user_name):
-    #     #input
-    #     print("Terminal: 8. Set new user name: ", new_user_name)
-    
+
 class Browser():
     def __init__(self, pt, method):
         self.platform = pt
