@@ -82,6 +82,21 @@ let createPeerConnection = (peerUsername, receiver_channel_name) => {
             // pc.addIceCandidate(new RTCIceCandidate(event.candidate));
         };
 
+        let negotiating = false;
+        pc.onnegotiationneeded = async e => {
+            try {
+                if (negotiating || pc.signalingState != "stable") return;
+                negotiating = true;
+                await pc.setLocalDescription(await pc.createOffer());
+                sendSignal('new-offer', {
+                    'sdp': pc.localDescription,
+                    'receiver_channel_name': receiver_channel_name,
+                });
+            } finally {
+                negotiating = false;
+            }
+        };
+
         pc.ontrack = onTrack;
         // pc.addStream(localStream);
 

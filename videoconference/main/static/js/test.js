@@ -28,139 +28,624 @@ const socket = new WebSocket(
     + '/'
 );
 
-// variables
-var username = 'test_user'
-var mapPeers = {}; // map peer usernames to corresponding RTCPeerConnections as key value pairs
-var mapScreenPeers = {}; // peers that stream own screen to remote peers
-var screenShared = false; // true if screen is being shared false otherwise
-// let localStream;
-let remoteStreamElement = document.querySelector('#remoteStream');
-let localStreamElement = document.querySelector('#localStream');
+// map peer usernames to corresponding RTCPeerConnections
+// as key value pairs
+var mapPeers = {};
+
+// peers that stream own screen
+// to remote peers
+var mapScreenPeers = {};
+
+// true if screen is being shared
+// false otherwise
+var screenShared = false;
+
+const localVideo = document.querySelector('#local-video');
+
+// button to start or stop screen sharing
+var btnShareScreen = document.querySelector('#btn-share-screen');
 
 // local video stream
 var localStream = new MediaStream();
 
-socket.onopen = function(event) {
-    console.log('connected', socket.readyState);
-    console.log(event)
-    sendSignal('new-peer', {
-        'local_screen_sharing': false,
+// local screen stream
+// for screen sharing
+var localDisplayStream = new MediaStream();
+
+// buttons to toggle self audio and video
+btnToggleAudio = document.querySelector("#btn-toggle-audio");
+btnToggleVideo = document.querySelector("#btn-toggle-video");
+
+var messageInput = document.querySelector('#msg');
+var btnSendMsg = document.querySelector('#btn-send-msg');
+
+// button to start or stop screen recording
+var btnRecordScreen = document.querySelector('#btn-record-screen');
+// object that will start or stop screen recording
+var recorder;
+// true of currently recording, false otherwise
+var recording = false;
+
+var file;
+
+document.getElementById('share-file-button').addEventListener('click', () => {
+    document.getElementById('select-file-dialog').style.display = 'block';
+});
+  
+document.getElementById('cancel-button').addEventListener('click', () => {
+    document.getElementById('select-file-input').value = '';
+    document.getElementById('select-file-dialog').style.display = 'none';
+    document.getElementById('ok-button').disabled = true;
+});
+  
+document.getElementById('select-file-input').addEventListener('change', (event) => {
+    file = event.target.files[0];
+    document.getElementById('ok-button').disabled = !file;
+});
+
+// ul of messages
+var ul = document.querySelector("#message-list");
+
+var loc = window.location;
+
+var endPoint = '';
+var wsStart = 'ws://';
+
+if(loc.protocol == 'https:'){
+    wsStart = 'wss://';
+}
+
+var endPoint = wsStart + loc.host + loc.pathname;
+
+var webSocket;
+
+var usernameInput = document.querySelector('#username');
+var username;
+
+var btnJoin = document.querySelector('#btn-join');
+
+// set username
+// join room (initiate websocket connection)
+// upon button click
+btnJoin.onclick = () => {
+    username = usernameInput.value;
+
+    if(username == ''){
+        // ignore if username is empty
+        return;
+    }
+
+    // clear input
+    usernameInput.value = '';
+    // disable and vanish input
+    btnJoin.disabled = true;
+    usernameInput.style.visibility = 'hidden';
+    // disable and vanish join button
+    btnJoin.disabled = true;
+    btnJoin.style.visibility = 'hidden';
+
+    document.querySelector('#label-username').innerHTML = username;
+
+    webSocket = new WebSocket(endPoint);
+
+    webSocket.onopen = function(e){
+        console.log('Connection opened! ', e);
+
+        // notify other peers
+        sendSignal('new-peer', {
+            'local_screen_sharing': false,
+        });
+    }
+
+
+    // ---------------------------------------------------
+    webSocket.onmessage = function (event){
+        var parsedData = JSON.parse(event.data);
+    
+        var action = parsedData['action'];
+        // username of other peer
+        var peerUsername = parsedData['peer'];
+        
+        console.log('peerUsername: ', peerUsername);
+        console.log('action: ', action);
+    
+        if(peerUsername == username){
+            // ignore all messages from oneself
+            return;
+        }
+    
+        // boolean value specified by other peer
+        // indicates whether the other peer is sharing screen
+        var remoteScreenSharing = parsedData['message']['local_screen_sharing'];
+        console.log('remoteScreenSharing: ', remoteScreenSharing);
+        
+        // channel name of the sender of this message
+        // used to send messages back to that sender
+        // hence, receiver_channel_name
+        var receiver_channel_name = parsedData['message']['receiver_channel_name'];
+        console.log('receiver_channel_name: ', receiver_channel_name);
+    
+        // in case of new peer
+        if(action == 'new-peer'){
+            console.log('New peer: ', peerUsername);
+            
+            // ---------------------------------------------
+            // create new RTCPeerConnection
+            var peer = new RTCPeerConnection(null);
+
+            // add local user media stream tracks
+            if(!localScreenSharing){
+                // if it is not a screen sharing peer
+                // add user media tracks
+                localStream.getTracks().forEach(track => {
+                    console.log('Adding localStream tracks.');
+                    peer.addTrack(track, localStream);
+                });
+            } else {
+                // if it is a screen sharing peer
+                // add display media tracks
+                localDisplayStream.getTracks().forEach(track => {
+                    console.log('Adding localDisplayStream tracks.');
+                    peer.addTrack(track, localDisplayStream);
+                });
+            }
+
+            // create and manage an RTCDataChannel
+            var dc = peer.createDataChannel("channel");
+            dc.onopen = () => {
+                console.log("Connection opened.");
+            };
+            var remoteVideo = null;
+
+            remoteVideo = createVideo(peerUsername);
+            setOnTrack(peer, remoteVideo);
+            console.log('Remote video source: ', remoteVideo.srcObject);
+
+            peer.onicecandidate = (event) => {
+                if(event.candidate){
+                    console.log("New Ice Candidate! Reprinting SDP" + JSON.stringify(peer.localDescription));
+                    return;
+                }
+                
+                // event.candidate == null indicates that gathering is complete
+                
+                console.log('Gathering finished! Sending offer SDP to ', peerUsername, '.');
+                console.log('receiverChannelName: ', receiver_channel_name);
+
+                // send offer to new peer
+                // after ice candidate gathering is complete
+                sendSignal('new-offer', {
+                    'sdp': peer.localDescription,
+                    'receiver_channel_name': receiver_channel_name,
+                    'local_screen_sharing': localScreenSharing,
+                    'remote_screen_sharing': remoteScreenSharing,
+                });
+            }
+
+            peer.createOffer()
+                .then(o => peer.setLocalDescription(o))
+                .then(function(event){
+                    console.log("Local Description Set successfully.");
+                });
+
+            console.log('mapPeers[', peerUsername, ']: ', mapPeers[peerUsername]);
+
+            return peer;
+        }
+        // ---------------------------------------------
+    
+        // remote_screen_sharing from the remote peer
+        // will be local screen sharing info for this peer
+        var localScreenSharing = parsedData['message']['remote_screen_sharing'];
+    
+        if(action == 'new-offer'){
+            console.log('Got new offer from ', peerUsername);
+    
+            // create new RTCPeerConnection
+            // set offer as remote description
+            var offer = parsedData['message']['sdp'];
+            console.log('Offer: ', offer);
+
+            // ----------------------------------------
+            var peer = new RTCPeerConnection(null);
+
+            addLocalTracks(peer, localScreenSharing);
+
+            if(!localScreenSharing && !remoteScreenSharing){
+                // if none are sharing screens (normal operation)
+
+                // set remote video
+                var remoteVideo = createVideo(peerUsername);
+
+                // and add tracks to remote video
+                setOnTrack(peer, remoteVideo);
+
+                // it will have an RTCDataChannel
+                peer.ondatachannel = e => {
+                    console.log('e.channel.label: ', e.channel.label);
+                    peer.dc = e.channel;
+                    peer.dc.onmessage = dcOnMessage;
+                    peer.dc.onopen = () => {
+                        console.log("Connection opened.");
+                    }
+
+                    // store the RTCPeerConnection
+                    // and the corresponding RTCDataChannel
+                    // after the RTCDataChannel is ready
+                    // otherwise, peer.dc may be undefined
+                    // as peer.ondatachannel would not be called yet
+                    mapPeers[peerUsername] = [peer, peer.dc];
+                }
+
+                peer.oniceconnectionstatechange = () => {
+                    var iceConnectionState = peer.iceConnectionState;
+                    if (iceConnectionState === "failed" || iceConnectionState === "disconnected" || iceConnectionState === "closed"){
+                        delete mapPeers[peerUsername];
+                        if(iceConnectionState != 'closed'){
+                            peer.close();
+                        }
+                        removeVideo(remoteVideo);
+                    }
+                };
+            }else if(localScreenSharing && !remoteScreenSharing){
+                // answerer itself is sharing screen
+
+                // it will have an RTCDataChannel
+                peer.ondatachannel = e => {
+                    peer.dc = e.channel;
+                    peer.dc.onmessage = (evt) => {
+                        console.log('New message from %s: ', peerUsername, evt.data);
+                    }
+                    peer.dc.onopen = () => {
+                        console.log("Connection opened.");
+                    }
+
+                    // this peer is a screen sharer
+                    // so its connections will be stored in mapScreenPeers
+                    // store the RTCPeerConnection
+                    // and the corresponding RTCDataChannel
+                    // after the RTCDataChannel is ready
+                    // otherwise, peer.dc may be undefined
+                    // as peer.ondatachannel would not be called yet
+                    mapScreenPeers[peerUsername] = [peer, peer.dc];
+
+                    peer.oniceconnectionstatechange = () => {
+                        var iceConnectionState = peer.iceConnectionState;
+                        if (iceConnectionState === "failed" || iceConnectionState === "disconnected" || iceConnectionState === "closed"){
+                            delete mapScreenPeers[peerUsername];
+                            if(iceConnectionState != 'closed'){
+                                peer.close();
+                            }
+                        }
+                    };
+                }
+            }else{
+                // offerer is sharing screen
+
+                // set remote video
+                var remoteVideo = createVideo(peerUsername + '-screen');
+                // and add tracks to remote video
+                setOnTrack(peer, remoteVideo);
+
+                // it will have an RTCDataChannel
+                peer.ondatachannel = e => {
+                    peer.dc = e.channel;
+                    peer.dc.onmessage = evt => {
+                        console.log('New message from %s\'s screen: ', peerUsername, evt.data);
+                    }
+                    peer.dc.onopen = () => {
+                        console.log("Connection opened.");
+                    }
+
+                    // store the RTCPeerConnection
+                    // and the corresponding RTCDataChannel
+                    // after the RTCDataChannel is ready
+                    // otherwise, peer.dc may be undefined
+                    // as peer.ondatachannel would not be called yet
+                    mapPeers[peerUsername + ' Screen'] = [peer, peer.dc];
+                    
+                }
+                peer.oniceconnectionstatechange = () => {
+                    var iceConnectionState = peer.iceConnectionState;
+                    if (iceConnectionState === "failed" || iceConnectionState === "disconnected" || iceConnectionState === "closed"){
+                        delete mapPeers[peerUsername + ' Screen'];
+                        if(iceConnectionState != 'closed'){
+                            peer.close();
+                        }
+                        removeVideo(remoteVideo);
+                    }
+                };
+            }
+
+            peer.onicecandidate = (event) => {
+                if(event.candidate){
+                    console.log("New Ice Candidate! Reprinting SDP" + JSON.stringify(peer.localDescription));
+                    return;
+                }
+                
+                // event.candidate == null indicates that gathering is complete
+
+                console.log('Gathering finished! Sending answer SDP to ', peerUsername, '.');
+                console.log('receiverChannelName: ', receiver_channel_name);
+
+                // send answer to offering peer
+                // after ice candidate gathering is complete
+                // answer needs to send two types of screen sharing data
+                // local and remote so that offerer can understand
+                // to which RTCPeerConnection this answer belongs
+                sendSignal('new-answer', {
+                    'sdp': peer.localDescription,
+                    'receiver_channel_name': receiver_channel_name,
+                    'local_screen_sharing': localScreenSharing,
+                    'remote_screen_sharing': remoteScreenSharing,
+                });
+            }
+
+            peer.setRemoteDescription(offer)
+                .then(() => {
+                    console.log('Set offer from %s.', peerUsername);
+                    return peer.createAnswer();
+                })
+                .then(a => {
+                    console.log('Setting local answer for %s.', peerUsername);
+                    return peer.setLocalDescription(a);
+                })
+                .then(() => {
+                    console.log('Answer created for %s.', peerUsername);
+                    console.log('localDescription: ', peer.localDescription);
+                    console.log('remoteDescription: ', peer.remoteDescription);
+                })
+                .catch(error => {
+                    console.log('Error creating answer for %s.', peerUsername);
+                    console.log(error);
+                });
+
+            return
+            // ----------------------------------------
+        }
+        
+    
+        if(action == 'new-answer'){
+            // in case of answer to previous offer
+            // get the corresponding RTCPeerConnection
+            var peer = null;
+            
+            if(remoteScreenSharing){
+                // if answerer is screen sharer
+                peer = mapPeers[peerUsername + ' Screen'][0];
+            }else if(localScreenSharing){
+                // if offerer was screen sharer
+                peer = mapScreenPeers[peerUsername][0];
+            }else{
+                // if both are non-screen sharers
+                peer = mapPeers[peerUsername][0];
+            }
+    
+            // get the answer
+            var answer = parsedData['message']['sdp'];
+            
+            console.log('mapPeers:');
+            for(key in mapPeers){
+                console.log(key, ': ', mapPeers[key]);
+            }
+    
+            console.log('peer: ', peer);
+            console.log('answer: ', answer);
+    
+            // set remote description of the RTCPeerConnection
+            peer.setRemoteDescription(answer);
+    
+            return;
+        }
+    }
+    // --------------------------------------------------------------
+
+
+    webSocket.onclose = function(e){
+        console.log('Connection closed! ', e);
+    }
+    
+    webSocket.onerror = function(e){
+        console.log('Error occured! ', e);
+    }
+
+    btnSendMsg.disabled = false;
+    messageInput.disabled = false;
+}
+
+messageInput.addEventListener('keyup', function(event){
+    if(event.keyCode == 13){
+        // prevent from putting 'Enter' as input
+        event.preventDefault();
+
+        // click send message button
+        btnSendMsg.click();
+    }
+});
+
+btnSendMsg.onclick = btnSendMsgOnClick;
+
+function btnSendMsgOnClick(){
+    var message = messageInput.value;
+    
+    var li = document.createElement("li");
+    li.appendChild(document.createTextNode("Me: " + message));
+    ul.appendChild(li);
+    
+    var dataChannels = getDataChannels();
+
+    console.log('Sending: ', message);
+
+    // send to all data channels
+    for(index in dataChannels){
+        dataChannels[index].send(username + ': ' + message);
+    }
+    
+    messageInput.value = '';
+}
+
+const constraints = {
+    'video': true,
+    'audio': true
+}
+
+// const iceConfiguration = {
+//     iceServers: [
+//         {
+//             urls: ['turn:numb.viagenie.ca'],
+//             credential: numbTurnCredential,
+//             username: numbTurnUsername
+//         }
+//     ]
+// };
+
+userMedia = navigator.mediaDevices.getUserMedia(constraints)
+    .then(stream => {
+        localStream = stream;
+        console.log('Got MediaStream:', stream);
+        var mediaTracks = stream.getTracks();
+        
+        for(i=0; i < mediaTracks.length; i++){
+            console.log(mediaTracks[i]);
+        }
+        
+        localVideo.srcObject = localStream;
+        localVideo.muted = true;
+
+        window.stream = stream; // make variable available to browser console
+
+        audioTracks = stream.getAudioTracks();
+        videoTracks = stream.getVideoTracks();
+
+        // unmute audio and video by default
+        audioTracks[0].enabled = true;
+        videoTracks[0].enabled = true;
+
+        btnToggleAudio.onclick = function(){
+            audioTracks[0].enabled = !audioTracks[0].enabled;
+            if(audioTracks[0].enabled){
+                btnToggleAudio.innerHTML = 'Audio Mute';
+                return;
+            }
+            
+            btnToggleAudio.innerHTML = 'Audio Unmute';
+        };
+
+        btnToggleVideo.onclick = function(){
+            videoTracks[0].enabled = !videoTracks[0].enabled;
+            if(videoTracks[0].enabled){
+                btnToggleVideo.innerHTML = 'Video Off';
+                return;
+            }
+
+            btnToggleVideo.innerHTML = 'Video On';
+        };
+    })
+    .then(e => {
+        btnShareScreen.onclick = event => {
+            if(screenShared){
+                // toggle screenShared
+                screenShared = !screenShared;
+
+                // set to own video
+                // if screen already shared
+                localVideo.srcObject = localStream;
+                btnShareScreen.innerHTML = 'Share screen';
+
+                // get screen sharing video element
+                var localScreen = document.querySelector('#my-screen-video');
+                // remove it
+                removeVideo(localScreen);
+
+                // close all screen share peer connections
+                var screenPeers = getPeers(mapScreenPeers);
+                for(index in screenPeers){
+                    screenPeers[index].close();
+                }
+                // empty the screen sharing peer storage object
+                mapScreenPeers = {};
+
+                return;
+            }
+            
+            // toggle screenShared
+            screenShared = !screenShared;
+
+            navigator.mediaDevices.getDisplayMedia(constraints)
+                .then(stream => {
+                    localDisplayStream = stream;
+                    
+                    var mediaTracks = stream.getTracks();
+                    for(i=0; i < mediaTracks.length; i++){
+                        console.log(mediaTracks[i]);
+                    }
+
+                    var localScreen = createVideo('my-screen');
+                    // set to display stream
+                    // if screen not shared
+                    localScreen.srcObject = localDisplayStream;
+
+                    // notify other peers
+                    // of screen sharing peer
+                    sendSignal('new-peer', {
+                        'local_screen_sharing': true,
+                    });
+                })
+                .catch(error => {
+                    console.log('Error accessing display media.', error);
+                });
+
+            btnShareScreen.innerHTML = 'Stop sharing';
+        }
+    })
+    .then(e => {
+        btnRecordScreen.addEventListener('click', () => {
+            if(recording){
+                // toggle recording
+                recording = !recording;
+
+                btnRecordScreen.innerHTML = 'Record Screen';
+
+                recorder.stopRecording(function() {
+                    var blob = recorder.getBlob();
+                    invokeSaveAsDialog(blob);
+                });
+
+                return;
+            }
+            
+            // toggle recording
+            recording = !recording;
+
+            navigator.mediaDevices.getDisplayMedia(constraints)
+                .then(stream => {
+                    recorder = RecordRTC(stream, {
+                        type: 'video',
+                        MimeType: 'video/mp4'
+                    });
+                    recorder.startRecording();
+                    
+                    var mediaTracks = stream.getTracks();
+                    for(i=0; i < mediaTracks.length; i++){
+                        console.log(mediaTracks[i]);
+                    }
+
+                })
+                .catch(error => {
+                    console.log('Error accessing display media.', error);
+                });
+
+            btnRecordScreen.innerHTML = 'Stop Recording';
+        });
+    })
+    .catch(error => {
+        console.error('Error accessing media devices.', error);
     });
-    // createPeerConnection();
-    // sendOffer();
-};
 
-socket.onmessage = function(event) {
-    // let data = event.data;
-    console.log('Data received: ', event.data);
-
-    var parsedData = JSON.parse(event.data);
-    var action = parsedData['action'];
-    // username of other peer
-    var peerUsername = parsedData['peer'];
-
-    console.log('peerUsername: ', peerUsername);
-    console.log('action: ', action);
-
-    // if(peerUsername == username){
-    //     // ignore all messages from oneself
-    //     return;
-    // }
-
-    // boolean value specified by other peer
-    // indicates whether the other peer is sharing screen
-    var remoteScreenSharing = parsedData['message']['local_screen_sharing'];
-    console.log('remoteScreenSharing: ', remoteScreenSharing);
-
-    // channel name of the sender of this message
-    // used to send messages back to that sender
-    // hence, receiver_channel_name
-    var receiver_channel_name = parsedData['message']['receiver_channel_name'];
-    console.log('receiver_channel_name: ', receiver_channel_name);
-
-    // in case of new peer
-    if(action == 'new-peer'){
-        console.log('New peer: ', peerUsername);
-
-        // create new RTCPeerConnection
-        createOfferer(peerUsername, false, remoteScreenSharing, receiver_channel_name);
-        // createPeerConnection(peerUsername, false, remoteScreenSharing, receiver_channel_name);
-
-        if(screenShared && !remoteScreenSharing){
-            // if local screen is being shared
-            // and remote peer is not sharing screen
-            // send offer from screen sharing peer
-            console.log('Creating screen sharing offer.');
-            createOfferer(peerUsername, true, remoteScreenSharing, receiver_channel_name);
-        }
-        
-        return;
-    }
-
-    // remote_screen_sharing from the remote peer
-    // will be local screen sharing info for this peer
-    var localScreenSharing = parsedData['message']['remote_screen_sharing'];
-
-    if(action == 'new-offer'){
-        console.log('Got new offer from ', peerUsername);
-
-        // create new RTCPeerConnection
-        // set offer as remote description
-        var offer = parsedData['message']['sdp'];
-        console.log('Offer: ', offer);
-        var pc = createAnswerer(offer, peerUsername, localScreenSharing, remoteScreenSharing, receiver_channel_name);
-
-        return;
-    }
-
-    if(action == 'new-answer'){
-        // in case of answer to previous offer
-        // get the corresponding RTCPeerConnection
-        var pc = null;
-        
-        if(remoteScreenSharing){
-            // if answerer is screen sharer
-            pc = mapPeers[peerUsername + ' Screen'][0];
-        }else if(localScreenSharing){
-            // if offerer was screen sharer
-            pc = mapScreenPeers[peerUsername][0];
-        }else{
-            // if both are non-screen sharers
-            pc = mapPeers[peerUsername][0];
-        }
-
-        // get the answer
-        var answer = parsedData['message']['sdp'];
-        
-        console.log('mapPeers:');
-        for(key in mapPeers){
-            console.log(key, ': ', mapPeers[key]);
-        }
-
-        console.log('peer: ', pc);
-        console.log('answer: ', answer);
-
-        // set remote description of the RTCPeerConnection
-        pc.setRemoteDescription(new RTCSessionDescription(answer));
-
-        return;
-    }
-
-    // handleSignalingData(data);
-};
-
-let sendData = (data) => {
-    console.log(data)
-    socket.send(JSON.stringify(data));
-};
-
-socket.onclose = function(event) {
-    console.error('Chat socket closed unexpectedly');
-};
-
-
+// send the given action and message
+// over the websocket connection
 function sendSignal(action, message){
-    socket.send(
+    webSocket.send(
         JSON.stringify(
             {
                 'peer': username,
@@ -171,151 +656,87 @@ function sendSignal(action, message){
     )
 }
 
-let getLocalStream = () => {
-    navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-        .then((stream) => {
-            console.log('Stream found');
-            localStream = stream;
-            // Disable the microphone and video by default
-            stream.getAudioTracks()[0].enabled = false;
-            stream.getVideoTracks()[0].enabled = false;
-            localStreamElement.srcObject = localStream;
-        })
-        .catch(error => {
-            console.error('Stream not found: ', error);
-        });
+function dcOnMessage(event){
+    var message = event.data;
+    
+    var li = document.createElement("li");
+    li.appendChild(document.createTextNode(message));
+    ul.appendChild(li);
 }
 
-function createOfferer(peerUsername, localScreenSharing, remoteScreenSharing, receiver_channel_name){
-    try {
-        pc = new RTCPeerConnection(PC_CONFIG);
-        
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                // console.log('ICE candidate');
-                console.log("New Ice Candidate! Reprinting SDP" + JSON.stringify(pc.localDescription));
-                // sendData({
-                // type: 'candidate',
-                // candidate: event.candidate
-                // });
-            }
-            console.log('Gathering finished! Sending offer SDP to ', peerUsername, '.');
-            sendSignal('new-offer', {
-                'sdp': pc.localDescription,
-                'receiver_channel_name': receiver_channel_name,
-                'local_screen_sharing': localScreenSharing,
-                'remote_screen_sharing': remoteScreenSharing,
-            });
-        };
-
-        // pc.ontrack = (event) => {
-        //     console.log('Add track');
-        //     remoteStreamElement.srcObject = event.streams[0];
-        // };
-
-        // pc.addStream(localStream);
-
-        // --------
-        addLocalTracks(pc, localScreenSharing);
-        setOnTrack(pc, remoteStreamElement);
-        console.log('Remote video source: ', localStream.srcObject);
-        mapPeers[peerUsername] = [pc, pc];
-        // ----------
-
-        console.log('PeerConnection created');
-
-        console.log('Send offer');
-        pc.createOffer()
-            .then(o => pc.setLocalDescription(o))
-            .then(function(event){
-                console.log("Local Description Set successfully.");
-        });
-
+// get all stored data channels
+function getDataChannels(){
+    var dataChannels = [];
+    
+    for(peerUsername in mapPeers){
         console.log('mapPeers[', peerUsername, ']: ', mapPeers[peerUsername]);
+        var dataChannel = mapPeers[peerUsername][1];
+        console.log('dataChannel: ', dataChannel);
 
-        return pc;
-
-    } catch (error) {
-        console.error('PeerConnection failed: ', error);
+        dataChannels.push(dataChannel);
     }
-};
 
-function createAnswerer(offer, peerUsername, localScreenSharing, remoteScreenSharing, receiver_channel_name){
-    try {
-        pc = new RTCPeerConnection(PC_CONFIG);
-        
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                // console.log('ICE candidate');
-                console.log("New Ice Candidate! Reprinting SDP" + JSON.stringify(pc.localDescription));
-                // sendData({
-                // type: 'candidate',
-                // candidate: event.candidate
-                // });
-            }
-            console.log('Gathering finished! Sending offer SDP to ', peerUsername, '.');
-            sendSignal('new-answer', {
-                'sdp': pc.localDescription,
-                'receiver_channel_name': receiver_channel_name,
-                'local_screen_sharing': localScreenSharing,
-                'remote_screen_sharing': remoteScreenSharing,
-            });
-        };
-
-        // pc.ontrack = (event) => {
-        //     console.log('Add track');
-        //     remoteStreamElement.srcObject = event.streams[0];
-        // };
-
-        // pc.addStream(localStream);
-        // console.log('PeerConnection created');
-
-        // -----------
-        addLocalTracks(pc, localScreenSharing);
-        setOnTrack(pc, remoteStreamElement);
-        // --------------
-
-        console.log('Send answer');
-        pc.setRemoteDescription(new RTCSessionDescription(offer))
-        .then(() => {
-            console.log('Set offer from %s.', peerUsername);
-            return pc.createAnswer();
-        })
-        .then(a => {
-            console.log('Setting local answer for %s.', peerUsername);
-            return pc.setLocalDescription(a);
-        })
-        .then(() => {
-            console.log('Answer created for %s.', peerUsername);
-            console.log('localDescription: ', pc.localDescription);
-            console.log('remoteDescription: ', pc.remoteDescription);
-        })
-        .catch(error => {
-            console.log('Error creating answer for %s.', peerUsername);
-            console.log(error);
-        });
-
-        return pc;
-
-    } catch (error) {
-        console.error('PeerConnection failed: ', error);
-    }
-};
-
-function addLocalTracks(pc, localScreenSharing){
-
-    localStream.getTracks().forEach(track => {
-        console.log('Adding localStream tracks.');
-        pc.addTrack(track, localStream);
-    });
-
-    // localDisplayStream.getTracks().forEach(track => {
-    //     console.log('Adding localDisplayStream tracks.');
-    //     pc.addTrack(track, localDisplayStream);
-    // });
+    return dataChannels;
 }
 
-function setOnTrack(pc, remoteVideo){
+// get all stored RTCPeerConnections
+// peerStorageObj is an object (either mapPeers or mapScreenPeers)
+function getPeers(peerStorageObj){
+    var peers = [];
+    
+    for(peerUsername in peerStorageObj){
+        var peer = peerStorageObj[peerUsername][0];
+        console.log('peer: ', peer);
+
+        peers.push(peer);
+    }
+
+    return peers;
+}
+
+// for every new peer
+// create a new video element
+// and its corresponding user gesture button
+// assign ids corresponding to the username of the remote peer
+function createVideo(peerUsername){
+    var videoContainer = document.querySelector('#video-container');
+    
+    // create the new video element
+    // and corresponding user gesture button
+    var remoteVideo = document.createElement('video');
+    // var btnPlayRemoteVideo = document.createElement('button');
+
+    remoteVideo.id = peerUsername + '-video';
+    remoteVideo.autoplay = true;
+    remoteVideo.playsinline = true;
+    // btnPlayRemoteVideo.id = peerUsername + '-btn-play-remote-video';
+    // btnPlayRemoteVideo.innerHTML = 'Click here if remote video does not play';
+
+    // wrapper for the video and button elements
+    var videoWrapper = document.createElement('div');
+
+    // add the wrapper to the video container
+    videoContainer.appendChild(videoWrapper);
+
+    // add the video to the wrapper
+    videoWrapper.appendChild(remoteVideo);
+    // videoWrapper.appendChild(btnPlayRemoteVideo);
+
+    // as user gesture
+    // video is played by button press
+    // otherwise, some browsers might block video
+    // btnPlayRemoteVideo.addEventListener("click", function (){
+    //     remoteVideo.play();
+    //     btnPlayRemoteVideo.style.visibility = 'hidden';
+    // });
+
+    return remoteVideo;
+}
+
+// set onTrack for RTCPeerConnection
+// to add remote tracks to remote stream
+// to show video through corresponding remote video element
+function setOnTrack(peer, remoteVideo){
     console.log('Setting ontrack:');
     // create new MediaStream for remote tracks
     var remoteStream = new MediaStream();
@@ -325,176 +746,15 @@ function setOnTrack(pc, remoteVideo){
 
     console.log('remoteVideo: ', remoteVideo.id);
 
-    pc.addEventListener('track', async (event) => {
+    peer.addEventListener('track', async (event) => {
         console.log('Adding track: ', event.track);
         remoteStream.addTrack(event.track, remoteStream);
     });
-};
+}
 
-// ---------------------------
-
-// document.querySelector('#chat-message-input').focus();
-// document.querySelector('#chat-message-input').onkeyup = function(e) {
-//     if (e.keyCode === 13) {  // enter, return
-//         document.querySelector('#chat-message-submit').click();
-//     }
-// };
-
-// document.querySelector('#chat-message-submit').onclick = function(e) {
-//     const messageInputDom = document.querySelector('#chat-message-input');
-//     const message = messageInputDom.value;
-//     chatSocket.send(JSON.stringify({
-//         'message': message
-//     }));
-//     messageInputDom.value = '';
-// };
-
-// -----------------
-
-// WebRTC methods
-// let pc;
-// let localStream;
-// let remoteStreamElement = document.querySelector('#remoteStream');
-// let localStreamElement = document.querySelector('#localStream');
-
-// let getLocalStream = () => {
-//     navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-//         .then((stream) => {
-//             console.log('Stream found');
-//             localStream = stream;
-//             // Disable the microphone and video by default
-//             stream.getAudioTracks()[0].enabled = false;
-//             stream.getVideoTracks()[0].enabled = false;
-//             localStreamElement.srcObject = localStream;
-//             // Connect after making sure that local stream is availble
-//             // socket.connect();
-//             console.log('protocol', socket.protocol);
-//         })
-//         .catch(error => {
-//             console.error('Stream not found: ', error);
-//         });
-// }
-
-// let createPeerConnection = () => {
-//     try {
-//         pc = new RTCPeerConnection(PC_CONFIG);
-//         pc.onicecandidate = onIceCandidate;
-//         pc.ontrack = onTrack;
-//         pc.addStream(localStream);
-//         console.log('PeerConnection created');
-//     } catch (error) {
-//         console.error('PeerConnection failed: ', error);
-//     }
-// };
-
-// let sendOffer = () => {
-//     console.log('Send offer');
-//     pc.createOffer().then(
-//         setAndSendLocalDescription,
-//         (error) => { console.error('Send offer failed: ', error); }
-//     );
-// };
-
-// let sendAnswer = () => {
-//     console.log('Send answer');
-//     pc.createAnswer().then(
-//         setAndSendLocalDescription,
-//         (error) => { console.error('Send answer failed: ', error); }
-//     );
-// };
-
-// let setAndSendLocalDescription = (sessionDescription) => {
-//     pc.setLocalDescription(sessionDescription);
-//     console.log('Local description set');
-//     sendData(sessionDescription);
-// };
-
-// let onIceCandidate = (event) => {
-//     if (event.candidate) {
-//         console.log('ICE candidate');
-//         sendData({
-//         type: 'candidate',
-//         candidate: event.candidate
-//         });
-//     }
-// };
-
-// let onTrack = (event) => {
-//     console.log('Add track');
-//     remoteStreamElement.srcObject = event.streams[0];
-// };
-
-// let handleSignalingData = (data) => {
-//     console.log('Data received: ', data);
-//     switch (data.type) {
-//         case 'offer':
-//             createPeerConnection();
-//             pc.setRemoteDescription(new RTCSessionDescription(data));
-//             sendAnswer();
-//             break;
-//         case 'answer':
-//             pc.setRemoteDescription(new RTCSessionDescription(data));
-//             break;
-//         case 'candidate':
-//             pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-//             break;
-//     }
-// };
-
-function toggle(button) {
-    var content = button.querySelector("svg")
-        if(button.classList.contains("OFF")){
-            button.classList.remove("OFF");
-            button.classList.add("ON");
-            console.log(button.id, button.classList, content);
-            if(button.id == 1){
-                let micTrack = localStream.getAudioTracks()[0];
-                micTrack.enabled = !micTrack.enabled;
-                let micStatus = micTrack.enabled ? "unmuted" : "muted";
-                console.log(micStatus);
-                content.innerHTML = '<rect x="44.2716" y="10" width="15.6067" height="27.7798" rx="7.80333" stroke="white" stroke-width="2.8092"/><path d="M36.0001 31.8492C36.0001 40.745 43.5693 47.3779 51.6068 47.3779C58.7858 47.3779 67.5256 42.3057 67.5256 31.8492" stroke="white" stroke-width="2.49706" stroke-linecap="round" stroke-linejoin="round"/><path d="M51.7627 54.2449V47.9242" stroke="white" stroke-width="2.49706" stroke-linecap="round" stroke-linejoin="round"/>';
-                button.style.background = '#959595';
-            }
-            else if(button.id == 2){
-                let vidTrack = localStream.getVideoTracks()[0];
-                vidTrack.enabled = !vidTrack.enabled;
-                let vidStatus = vidTrack.enabled ? "unmuted" : "muted";
-                console.log(vidStatus);
-                content.innerHTML = '<rect x="29.3924" y="15.3924" width="41.4251" height="32.5483" rx="2.60756" stroke="white" stroke-width="2.78488"/><path d="M70.9916 23.8895C70.9916 23.6252 71.1624 23.3913 71.414 23.3108L79.0757 20.8604C79.4678 20.735 79.8684 21.0275 79.8684 21.439V42.0684C79.8684 42.48 79.4678 42.7725 79.0757 42.6471L71.414 40.1966C71.1624 40.1161 70.9916 39.8822 70.9916 39.618V23.8895Z" stroke="white" stroke-width="2.78488"/>';
-                button.style.background = '#959595';
-            }
-            else {
-                console.log("exit");
-                button.style.background = '#DB392E';
-            }
-        }
-    
-        else if(button.classList.contains("ON")){
-            button.classList.remove("ON");
-            button.classList.add("OFF");
-            console.log(button.id, button.classList, content);
-            if(button.id == 1){
-                let micTrack = localStream.getAudioTracks()[0];
-                micTrack.enabled = !micTrack.enabled;
-                let micStatus = micTrack.enabled ? "unmuted" : "muted";
-                console.log(micStatus);
-                content.innerHTML = '<rect x="44.2716" y="10" width="15.6067" height="27.7798" rx="7.80333" stroke="white" stroke-width="2.8092"/><path d="M36.0001 31.8492C36.0001 40.745 43.5693 47.3779 51.6068 47.3779C58.7858 47.3779 67.5256 42.3057 67.5256 31.8492" stroke="white" stroke-width="2.49706" stroke-linecap="round" stroke-linejoin="round"/><path d="M51.7627 54.2449V47.9242" stroke="white" stroke-width="2.49706" stroke-linecap="round" stroke-linejoin="round"/><path d="M30.8976 47.2491L70.1467 8" stroke="white" stroke-width="2.51195" stroke-linecap="round" stroke-linejoin="round"/>';
-                button.style.background = '#777777';
-            }
-            else if(button.id == 2){
-                let vidTrack = localStream.getVideoTracks()[0];
-                vidTrack.enabled = !vidTrack.enabled;
-                let vidStatus = vidTrack.enabled ? "unmuted" : "muted";
-                console.log(vidStatus);
-                content.innerHTML = '<rect x="29.2838" y="15.6049" width="41.1356" height="32.3208" rx="1.69493" stroke="white" stroke-width="2.76542"/><path d="M70.5924 23.7161C70.5924 23.6482 70.6363 23.588 70.701 23.5674L79.2035 20.848C79.3043 20.8158 79.4072 20.8909 79.4072 20.9967V42.7069C79.4072 42.8127 79.3043 42.8879 79.2035 42.8556L70.701 40.1363C70.6363 40.1156 70.5924 40.0555 70.5924 39.9876V23.7161Z" stroke="white" stroke-width="2.76542"/><path d="M26 55.7035L73.7035 8" stroke="white" stroke-width="2.76542" stroke-linecap="round" stroke-linejoin="round"/>';
-                button.style.background = '#777777';
-            }
-            else {
-                console.log("exit");
-                button.style.background = '#C42C22';
-            }
-        }
-    };
-
-// Start connection
-getLocalStream();
+function removeVideo(video){
+    // get the video wrapper
+    var videoWrapper = video.parentNode;
+    // remove it
+    videoWrapper.parentNode.removeChild(videoWrapper);
+}
