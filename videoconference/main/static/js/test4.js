@@ -5,7 +5,7 @@ const username = JSON.parse(document.getElementById('user-name').textContent);
 const socket = new WebSocket(
     'ws://'
     + window.location.host
-    + '/ws/main/'
+    + '/ws/'
     + roomName
     + '/'
 );

@@ -138,3 +138,32 @@ main {
 .end_call_btn button:hover {
 	background: #C42C22;
 }
+
+/* Entry Page */
+
+#entry_page {
+	display: flex;
+	height: 100vh;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+  	align-items: center;
+	gap: 25px;
+}
+
+#entry_page h1 {
+	color: #FFF;
+	font-family: Inter;
+	font-size: 96px;
+	text-align: center;
+	margin-block-start: 34vh;
+}
+
+#entry_page p {
+	color: #747474;
+	font-family: Inter;
+	font-size: 36px;
+	flex: auto;
+    text-align: center;
+    margin-block-start: 4vh;
+}
