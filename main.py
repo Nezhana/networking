@@ -8,6 +8,7 @@ import mysql.connector
 import socket
 import webbrowser
 import re
+import json
 
 class Terminal():
     def __init__(self, room_contrl, user_admin, brows):
@@ -27,6 +28,17 @@ class Terminal():
         if self.user_administator.check_user(self.hostname, self.ip_address):
             self.user_administator.new_user(self.hostname, self.ip_address)
             # pass
+
+        self.username = self.user_administator.get_username(self.hostname, self.ip_address)
+
+        host_config = {
+            'hostname': self.hostname,
+            'host_ip': self.ip_address,
+            'username': self.username,
+        }
+
+        with open("videoconference/main/host_config.json", "w") as json_file:
+            json.dump(host_config, json_file)
 
         #try command
         # os.system("pip list")
@@ -335,6 +347,15 @@ class User_Admin():
                 print(f'User exists.\nYour name: {user_col[1]}')
                 return False
         return True
+
+    def get_username(self, hostname, host_ip):
+        sql = 'SELECT * FROM user'
+        myresult = self._db_module_instance.use_cursor(sql)
+        for user_col in myresult:
+            user_hostname, user_ip = (user_col[2], user_col[3])
+            if user_hostname == hostname and user_ip == host_ip:
+                return user_col[1]
+        raise ValueError('Undefined user. Something went wrong lately.')
 
     def __str__(self):
         return f'User Administrator for DB: {self.db_module_instance.db_name}'
