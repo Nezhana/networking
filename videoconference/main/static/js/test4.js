@@ -1,6 +1,26 @@
 const roomName = JSON.parse(document.getElementById('room-name').textContent);
 const username = JSON.parse(document.getElementById('user-name').textContent);
 
+// TURN Server config
+const TURN_SERVER_URL = 'a.relay.metered.ca:80';
+const TURN_SERVER_USERNAME = '20edc1b5a1145664741ce56c';
+const TURN_SERVER_CREDENTIAL = '2faxuT5nJ6brAAI+';
+
+const PC_CONFIG = {
+    iceServers: [
+    {
+        urls: 'turn:' + TURN_SERVER_URL + '?transport=tcp',
+        username: TURN_SERVER_USERNAME,
+        credential: TURN_SERVER_CREDENTIAL
+    },
+    {
+        urls: 'turn:' + TURN_SERVER_URL + '?transport=udp',
+        username: TURN_SERVER_USERNAME,
+        credential: TURN_SERVER_CREDENTIAL
+    }
+    ]
+};
+
 // Create socket
 const socket = new WebSocket(
     'ws://'
@@ -86,7 +106,7 @@ socket.onmessage = function(event) {
         // ---------
         if (action === 'new-peer') {
             console.log('new-peer: ', peerUsername);
-            var pc = new RTCPeerConnection();
+            var pc = new RTCPeerConnection(PC_CONFIG);
 
             // add a stream sharing
             localStream.getTracks().forEach(track => {
@@ -155,7 +175,7 @@ socket.onmessage = function(event) {
             var offer = parsedData['message']['sdp'];
             console.log('Offer: ', offer);
 
-            var pc = new RTCPeerConnection(null);
+            var pc = new RTCPeerConnection(PC_CONFIG);
 
             // add a stream sharing
             localStream.getTracks().forEach(track => {

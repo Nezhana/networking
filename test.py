@@ -1,4 +1,5 @@
 import argparse
+import re
 
 def command_parser():
     desc = 'create_room [name] [-s] [-o] - create new room for videoconference, [name] - room name, [-s] - save room, [-o] - connect to room (open in bowser)\nconnect [name] - connect to existing room, [name] - room name\ndelete_room [name] - delete existing room, [name] - room name\nrename_room [old_name] [new_name] - rename existing room\nsave_room [name] - save existing room to saved list, [name] - room name\nget_saved - get all rooms from saved list\nchange_username [new_name] - change username\nerase_saved [name] - delete saved room from saved list'
@@ -85,13 +86,26 @@ def command_processor(args):
         case _:
             raise ValueError('!!! Wrong command !!!')
 
-def main():
-    args = command_parser()
-    print(args)
-    print(args.command)
-    print(' '.join(args.command))
-    command_processor(args)
 
+import mysql.connector
+
+def main():
+    link = 'http://192.168.1.109:8000/Room_1/'
+    match = re.search(r'http://([\d.]+:\w+/)(\w+)/', link)
+    print(match.group(1))
+
+    mydb = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='ssql5030',
+            database='videoconference'
+        )
+    cursor = mydb.cursor()
+    roomID = 3
+    sql = 'SELECT link FROM room WHERE Id = (%s)'
+    cursor.execute(sql, (roomID,))
+    myresult = cursor.fetchall()
+    print(myresult[0][0])
 
 if __name__ == "__main__":
     main()

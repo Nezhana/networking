@@ -7,6 +7,7 @@ import requests
 import mysql.connector
 import socket
 import webbrowser
+import re
 
 class Terminal():
     def __init__(self, room_contrl, user_admin, brows):
@@ -37,23 +38,23 @@ class Terminal():
     @room_controller.setter
     def room_controller(self, room_contrl):
         self._room_controller = room_contrl
-        
+
     @property
     def user_administrator(self):
         return self._user_administrator
-    
+
     @user_administrator.setter
     def user_administrator(self, user_admin):
         self._user_administrator = user_admin
-        
+
     @property
     def browser(self):
         return self._browser
-        
+
     @browser.setter
     def browser(self, brows):
         self._browser = brows
-        
+
     def command_parser(self):
         desc = 'create_room [name] [-s] [-o] - create new room for videoconference, [name] - room name, [-s] - save room, [-o] - connect to room (open in bowser)\nconnect [name] - connect to existing room, [name] - room name\ndelete_room [name] - delete existing room, [name] - room name\nrename_room [old_name] [new_name] - rename existing room\nsave_room [name] - save existing room to saved list, [name] - room name\nget_saved - get all rooms from saved list\nchange_username [new_name] - change username\nerase_saved [name] - delete saved room from saved list'
         connect = True
@@ -143,7 +144,7 @@ class Terminal():
                         if second_word == 'saved':
                             room_name = commands[2]
                             print(f'Delete room {room_name} from saved list.')
-                            self.room_controller.delete_saved_room(room_name)
+                            self.room_controller.delete_saved_room(self.hostname, self.ip_address, room_name)
                         else:
                             raise ValueError('!!! Wrong command !!!')
                     case _:
@@ -168,28 +169,28 @@ class Browser():
         print("In BROWSER init:")
         print("\tPlatform: ", self.platform)
         print("\tConnect method: ", self.connect_method)
-        
+
     @property
     def platform(self):
         return self._platform
-        
+
     @platform.setter
     def platform(self, pt):
         self._platform = pt
-        
+
     @property
     def connect_method(self):
         return self._connect_method
-        
+
     @connect_method.setter
     def connect_method(self, method):
         self._connect_method = method
-        
+
     def open_url(self, url):
         #action
         print(f'Browser: 1. Open URL: {url}')
         webbrowser.open(url)
-    
+
 class Room_Controller():
     def __init__(self, db_module):
         self.db_module_instance = db_module
@@ -202,27 +203,29 @@ class Room_Controller():
     @db_module_instance.setter
     def db_module_instance(self, db_module):
         self._db_module_instance = db_module
-        
+
     def create_link(self, room_name, host_ip, port='8000'):
         #output
         print("Room Contrl: 1. Create link for room.")
         link = f'http://{host_ip}:{port}/{room_name}/'
         return link
-    
+
     def create_room(self, room_name, host_ip, port='8000'):
         #action -> output
         room_link = self.create_link(room_name, host_ip, port)
         self.db_module_instance.new_room(room_name, room_link)
         print(f'Room Contrl: 2. Create new room: {room_name} ({room_link}).')
+        os.system(f"py videoconference/manage.py runserver {host_ip}:{port}")
         return room_link
-    
+
     def delete_room(self, room_name):
+        self._db_module_instance.delete_room(room_name)
         print(f'Room Contrl: 3. Delete room {room_name}.')
-    
+
     def rename_room(self, room_name, new_room_name):
         print(f'Room Contrl: 4. Rename room: {new_room_name}.')
         self.db_module_instance.rename_room(room_name, new_room_name)
-    
+
     def get_room(self, room_name):
         #output
         print("Room Contrl: 5. Get room.")
@@ -236,16 +239,32 @@ class Room_Controller():
             print('--- NOTHING FOUNDED!')
             room_link = 'https://google.com'
         return room_link
-        
+
     def save_room(self, hostname, host_ip, room_name):
         print(f'Room Contrl: 6. Save existing room {room_name}.')
         status = self._db_module_instance.create_saved_room(hostname, host_ip, room_name)
         if not status:
             print('--- Room can not be saved.')
-    
-    def delete_saved_room(self, room_name):
+
+    def delete_saved_room(self, hostname, host_ip, room_name):
         print('Room Contrl: 7. Delete room from list of saved rooms.')
-    
+        #check user id
+        # user_id = self._db_module_instance.get_user_id(hostname, host_ip)
+        # if not user_id:
+        #     print('--- ERROR in: Room_Controller. get_all_saved_rooms() - there are no such user.')
+        #     return False
+        print('All saved:')
+        all_saved = self.get_all_saved_rooms(hostname, host_ip)
+        status = False
+        for saved_room in all_saved:
+            if room_name == saved_room[3]:
+                status = True
+                break
+            status = False
+        # if founded:
+        if status:
+            self._db_module_instance.remove_saved_room(room_name)
+
     def get_all_saved_rooms(self, hostname, host_ip):
         print('Room Contrl: 8. Get all saved rooms.')
         #check if not saved yet
@@ -305,7 +324,7 @@ class User_Admin():
         self._db_module_instance.rename_user(new_name, hostname, host_ip)
         print('User Admin: 2. Set user name/Rename user.')
         print(f'Your new name: {new_name}')
-    
+
     def check_user(self, hostname, host_ip):
         print('User Admin: 3. Check if user already exists in DB.')
         sql = 'SELECT * FROM user'
@@ -316,7 +335,7 @@ class User_Admin():
                 print(f'User exists.\nYour name: {user_col[1]}')
                 return False
         return True
-    
+
     def __str__(self):
         return f'User Administrator for DB: {self.db_module_instance.db_name}'
     
@@ -334,34 +353,51 @@ class DB_Module():
     @property
     def db_name(self):
         return self._db_name
-        
+
     @db_name.setter
     def db_name(self, db_name):
         self._db_name = db_name
-        
+
     def new_room(self, name, link):
         print('DB Module: 1. Create new room')
         self._cursor = self.mydb.cursor()
         sql = 'INSERT INTO ROOM (name, link) VALUES (%s, %s)'
         val = (name, link)
+        self._cursor = self.mydb.cursor()
         self._cursor.execute(sql, val)
         self.mydb.commit()
-    
+
     def delete_room(self, room_name):
         roomID = self.get_room_id(room_name)
         if not roomID:
             print('--- ERROR in: DB_Module. delete_room() - no such room in DataBase.')
             return False
+        sql = 'DELETE FROM room WHERE ID = (%s);'
+        self._cursor = self.mydb.cursor()
+        self._cursor.execute(sql, (roomID,))
         print('DB Module: 2. Erase room from DB.')
-    
+        self.mydb.commit()
+
     def rename_room(self, room_name, new_room_name):
         print('DB Module: 3. Rename room.')
         roomID = self.get_room_id(room_name)
         if not roomID:
             print('--- ERROR in: DB_Module. rename_room() - no such room in DataBase.')
             return False
-        sql = 'UPDATE room SET name = (%s) WHERE ID = (%s);'
-        val = (new_room_name, roomID)
+        # get room link
+        sql = 'SELECT link FROM room WHERE Id = (%s)'
+        self._cursor = self.mydb.cursor()
+        self._cursor.execute(sql, (roomID,))
+        myresult = self._cursor.fetchall()
+        old_link = myresult[0][0]
+        # search for host:port/ part
+        match = re.search(r'http://([\d.]+:\w+/)(\w+)/', old_link)
+        host = match.group(1)
+        sql = 'UPDATE room SET name = (%s), link = (%s) WHERE ID = (%s);'
+        # create new link for DB row update
+        link = 'http://' + host + new_room_name + '/'
+        val = (new_room_name, link, roomID)
+        self._cursor = self.mydb.cursor()
         self._cursor.execute(sql, val)
         self.mydb.commit()
 
@@ -369,9 +405,10 @@ class DB_Module():
         user_id = self.get_user_id(hostname, host_ip)
         sql = 'UPDATE USER SET name = (%s) WHERE ID = (%s);'
         val = (new_name, user_id)
+        self._cursor = self.mydb.cursor()
         self._cursor.execute(sql, val)
         self.mydb.commit()
-    
+
     def create_saved_room(self, hostname, host_ip, room_name):
         #action
         user_id = self.get_user_id(hostname, host_ip)
@@ -389,7 +426,7 @@ class DB_Module():
         else:
             print('--- ERROR in: DB_Module. create_saved_room() - no such data in DataBase.')
             return False
-    
+
     def get_room_id(self, room_name):
         #output
         print("DB Module: 5. Get room ID")
@@ -402,17 +439,16 @@ class DB_Module():
             if room_name == room:
                 return room_col[0]
         return False
-    
-    def rename_saved_room(self, new_room_name):
-        #input -> action
-        ID = self.get_room_id()
-        print("DB Module: 6. Rename saved room: ", new_room_name)
-    
-    def remove_saved_room(self):
+
+    def remove_saved_room(self, room_name):
         #action
-        ID = self.get_room_id()
+        roomID = self.get_room_id(room_name)
+        sql = 'DELETE FROM SAVED_ROOM WHERE room_id = (%s);'
+        self._cursor = self.mydb.cursor()
+        self._cursor.execute(sql, (roomID,))
+        self.mydb.commit()
         print("DB Module: 7. Erase saved room from DB.")
-        
+
     def new_user(self, hostname, host_ip, name='NULL'):
         print('DB Module: 8. Create new user')
         sql = 'INSERT INTO USER (name, hostname, host_ip) VALUES (%s, %s, %s)'
@@ -445,7 +481,7 @@ class DB_Module():
             return myresult
         else:
             return False
-    
+
 class NoSuchRoomException(Exception):
     pass
 

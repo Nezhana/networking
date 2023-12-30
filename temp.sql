@@ -50,19 +50,36 @@ USE videoconference;
 -- INSERT INTO ROOM (name, link) VALUES ('Room 2', 'htt//www.videoconference.ua/link/c7620a83-e279-4e0f-8a3d-adebc5cfb1d7');
 -- INSERT INTO ROOM (name, link) VALUES ('Room 3', 'htt//www.videoconference.ua/link/01a38da3-630e-4418-9067-37b5a847d679');
 
+-- UPDATE ROOM
+-- SET link = "http://192.168.1.109:8000/Room_3/"
+-- WHERE ID = 3;
+
+-- UPDATE ROOM
+-- SET link = "http://192.168.1.109:8000/c76_id_2/"
+-- WHERE ID = 2;
+
+-- UPDATE ROOM
+-- SET name = "c76_id_2"
+-- WHERE ID = 2;
+
+-- UPDATE ROOM
+-- SET link = "http://192.168.1.109:8000/Room_1/"
+-- WHERE ID = 1;
+
 -- fetch 
 -- SELECT * FROM ROOM;
 
 
 -- ------------------------------------------
 
+-- drop table saved_room;
 -- create
 -- CREATE TABLE SAVED_ROOM (
 --     ID INT AUTO_INCREMENT PRIMARY KEY,
 --     user_ID INT,
 --     room_ID INT,
---     FOREIGN KEY (user_ID) REFERENCES USER(ID),
---     FOREIGN KEY (room_ID) REFERENCES ROOM(ID)
+--     FOREIGN KEY (user_ID) REFERENCES USER(ID) ON DELETE CASCADE ON UPDATE CASCADE,
+--     FOREIGN KEY (room_ID) REFERENCES ROOM(ID) ON DELETE CASCADE ON UPDATE CASCADE
 -- );
 
 -- insert
@@ -71,7 +88,7 @@ USE videoconference;
 -- INSERT INTO SAVED_ROOM (user_ID, room_ID) VALUES (3, 1);
 
 -- fetch 
--- SELECT * FROM SAVED_ROOM;
+SELECT * FROM SAVED_ROOM;
 -- SELECT SAVED_ROOM.ID, SAVED_ROOM.user_ID, SAVED_ROOM.room_ID, ROOM.name, ROOM.link
 -- FROM SAVED_ROOM
 -- LEFT JOIN ROOM ON SAVED_ROOM.room_ID = ROOM.ID
